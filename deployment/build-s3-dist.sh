@@ -307,6 +307,7 @@ cp "$source_dir/operators/operator-library.yaml" "$global_dist_dir/media-insight
 cp "$build_dir/media-insights-stack.yaml" "$global_dist_dir/media-insights-stack.template"
 cp "$build_dir/media-insights-test-operations-stack.yaml" "$global_dist_dir/media-insights-test-operations-stack.template"
 cp "$build_dir/media-insights-dataplane-streaming-stack.template" "$global_dist_dir/media-insights-dataplane-streaming-stack.template"
+cp "$build_dir/media-insights-smart-ad-breaks-stack.yaml" "$global_dist_dir/media-insights-smart-ad-breaks-stack.template"
 find "$global_dist_dir"
 echo "Updating template source bucket in template files with '$global_bucket'"
 echo "Updating code source bucket in template files with '$regional_bucket'"
@@ -327,6 +328,8 @@ sed -i.orig -e "$new_version" "$global_dist_dir/media-insights-test-operations-s
 sed -i.orig -e "$new_global_bucket" "$global_dist_dir/media-insights-dataplane-streaming-stack.template"
 sed -i.orig -e "$new_regional_bucket" "$global_dist_dir/media-insights-dataplane-streaming-stack.template"
 sed -i.orig -e "$new_version" "$global_dist_dir/media-insights-dataplane-streaming-stack.template"
+sed -i.orig -e "$new_regional_bucket" "$global_dist_dir/media-insights-smart-ad-breaks-stack.template"
+sed -i.orig -e "$new_version" "$global_dist_dir/media-insights-smart-ad-breaks-stack.template"
 
 echo "------------------------------------------------------------------------------"
 echo "Operators"
@@ -575,6 +578,18 @@ zip -q -r9 check_technical_cue_status.zip check_technical_cue_status.py
 zip -q -r9 start_shot_detection.zip start_shot_detection.py
 zip -q -r9 check_shot_detection_status.zip check_shot_detection_status.py
 mv -f ./*.zip "$regional_dist_dir"
+
+# ------------------------------------------------------------------------------"
+# Smart Ad Breaks operators
+# ------------------------------------------------------------------------------"
+
+echo "Building Smart Ad Breaks operators"
+cd "$source_dir/operators/slot_detection" || exit
+[ -e dist ] && rm -rf dist
+mkdir -p dist
+zip -q -g ./dist/slot_detection_operations.zip ./test.py
+cp "./dist/test_operations.zip" "$regional_dist_dir/test_operations.zip"
+rm -rf ./dist
 
 # ------------------------------------------------------------------------------"
 # Test operators

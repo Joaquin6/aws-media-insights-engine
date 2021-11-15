@@ -11,6 +11,7 @@ deployment/lambda_layer_factory/*.whl
 deployment/lambda_layer_factory/*.zip
 deployment/lambda_layer_factory/lambda_layer-python-*
 *__pycache__/
+*.vscode/
 *.DS_Store
 *.iml
 .idea/

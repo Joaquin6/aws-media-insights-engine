@@ -9,6 +9,13 @@ Parameters:
     AllowedValues:
       - Yes
       - No
+  DeploySmartAdBreaksResources:
+    Description: Deploy smart ad breaks resources which contains lambdas required for integration and e2e testing
+    Type: String
+    Default: No
+    AllowedValues:
+      - Yes
+      - No
   DeployAnalyticsPipeline:
     Type: String
     Description: Deploy a metadata streaming pipeline that can be consumed by downstream analytics plaforms
@@ -65,6 +72,7 @@ Metadata:
           - MaxConcurrentWorkflows
 
 Conditions:
+  DeploySmartAdBreaksResourcesCondition: !Equals [!Ref DeploySmartAdBreaksResources, Yes]
   DeployTestResourcesCondition: !Equals [!Ref DeployTestResources, Yes]
   DeployAnalyticsPipelineCondition: !Equals [!Ref DeployAnalyticsPipeline, Yes]
   EnableTraceOnEntryPoints: !Equals [!Ref EnableXrayTrace, Yes]
@@ -109,6 +117,12 @@ Resources:
             response = mediaconvert_client.describe_endpoints()
             mediaconvert_endpoint = response["Endpoints"][0]["Url"]
             response_data = {'Data': mediaconvert_endpoint}
+            return response_data
+          def get_mediatailor_endpoint():
+            mediatailor_client = boto3.client("mediatailor", region_name=os.environ['AWS_REGION'])
+            response = mediatailor_client.list_playback_configurations()
+            mediatailor_endpoint = response["Items"][0]["PlaybackEndpointPrefix"]
+            response_data = {'Data': mediatailor_endpoint}
             return response_data
           def init_system_table():
             dynamodb_client = boto3.resource("dynamodb")
@@ -162,6 +176,11 @@ Resources:
       ServiceToken: !GetAtt MieHelperFunction.Arn
       FunctionKey: "get_mediaconvert_endpoint"
 
+  GetMediaTailorEndpoint:
+    Type: Custom::CustomResource
+    Properties:
+      ServiceToken: !GetAtt MieHelperFunction.Arn
+      FunctionKey: "get_mediatailor_endpoint"
 
   # IAM Roles
   MieHelperExecutionRole:
@@ -1670,6 +1689,7 @@ Resources:
         StartWaitOperationLambda: !GetAtt StartWaitOperationLambda.Arn
         CheckWaitOperationLambda: !GetAtt CheckWaitOperationLambda.Arn
         MediaConvertEndpoint: !GetAtt GetMediaConvertEndpoint.Data
+        MediaTailorEndpoint: !GetAtt GetMediaTailorEndpoint.Data
         Boto3UserAgent: !Join ['', ['{"user_agent_extra": "AwsSolution/', !Ref "SolutionId", '/', !Ref "SolutionVersion", '"}']]
 
   TestResources:
@@ -1702,6 +1722,41 @@ Resources:
             - Outputs.APIHandlerName
         DataPlaneBucket: !Ref Dataplane
         MediaInsightsEnginePython38Layer: !Ref MediaInsightsEnginePython38Layer
+
+  SmartAdBreaksResources:
+    Condition: DeploySmartAdBreaksResourcesCondition
+    DependsOn:
+      - MediaInsightsWorkflowApi
+      - MediaInsightsDataplaneApiStack
+      - OperatorLibrary
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      TemplateURL:
+        !Join [
+          "",
+          [
+            "https://",
+            !FindInMap [ "SourceCode", "General", "GlobalS3Bucket" ],
+            ".s3.amazonaws.com/",
+            !FindInMap ["SourceCode", "General", "TemplateKeyPrefix"],
+            "/media-insights-smart-ad-breaks-stack.template",
+          ],
+        ]
+      Parameters:
+        MediaInsightsEnginePython38Layer: !Ref MediaInsightsEnginePython38Layer
+        WorkflowCustomResourceArn:
+          Fn::GetAtt:
+            - MediaInsightsWorkflowApi
+            - Outputs.WorkflowCustomResourceArn
+        WorkflowEndpoint:
+          Fn::GetAtt:
+            - MediaInsightsWorkflowApi
+            - Outputs.WorkflowApiEndpoint
+        DataplaneEndpoint:
+          Fn::GetAtt:
+            - MediaInsightsDataplaneApiStack
+            - Outputs.APIHandlerName
+        DataPlaneBucket: !Ref Dataplane
 
   AnonymousDataCustomResourceRole:
     Type: AWS::IAM::Role
@@ -1827,6 +1882,9 @@ Outputs:
     Value: !GetAtt Analytics.Outputs.analyticsStreamArn
     Export:
       Name: !Join [":", [!Ref "AWS::StackName", AnalyticsStreamArn]]
+  SmartAdBreaksStack:
+    Condition: DeploySmartAdBreaksResourcesCondition
+    Value: !Ref SmartAdBreaksResources
   TestStack:
     Condition: DeployTestResourcesCondition
     Value: !Ref TestResources

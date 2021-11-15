@@ -4,7 +4,7 @@ This factory creates AWS Lambda layers for user-specified Python libraries. Sepa
 
 ## USAGE:
 
-### 1. Preliminary Setup: 
+### 1. Preliminary Setup:
 1. Install [Docker](https://docs.docker.com/) and the [AWS CLI](https://aws.amazon.com/cli/) on your workstation.
 2. Setup credentials for AWS CLI (see http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
 3. Create IAM Role with Lambda and S3 access:
